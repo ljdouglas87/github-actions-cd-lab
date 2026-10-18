@@ -1,0 +1,18 @@
+# DELIBERATELY UNSAFE: it pastes an issue title into a shell script. You copy it into
+# .github/workflows to see script injection, then replace it with the safe version.
+name: Issue title
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Print the title (UNSAFE)
+        run: echo "New issue - ${{ github.event.issue.title }}"
