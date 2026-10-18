@@ -1,0 +1,24 @@
+name: Least privilege
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read                   # the default for every job: read the repository
+
+jobs:
+  open-issue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open an issue with the GITHUB_TOKEN
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { data } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Opened by Least privilege run ${context.runNumber}`,
+              body: 'The Least privilege workflow opened this issue with the GITHUB_TOKEN.',
+            })
+            core.info(`Opened issue #${data.number}: ${data.html_url}`)
