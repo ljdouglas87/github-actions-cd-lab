@@ -1,0 +1,6 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions   # the actions that your workflows use
+    directory: /                        # / means: look in .github/workflows
+    schedule:
+      interval: weekly
