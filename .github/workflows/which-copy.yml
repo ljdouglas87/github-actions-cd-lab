@@ -17,4 +17,4 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           echo "Event: $EVENT, ref: $GITHUB_REF"
-          echo "This is the copy of which-copy.yml from main."
+          echo "This is the copy of which-copy.yml from the pull request branch."
