@@ -1,0 +1,64 @@
+name: Java CI                      # java-app/Jenkinsfile, as a workflow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'java-app/**'
+      - '.github/workflows/java-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: java-app    # every run step starts in the app's folder
+
+jobs:
+  build:
+    runs-on: ubuntu-latest         # agent: a fresh machine for every run
+    timeout-minutes: 15
+    steps:
+      - name: Checkout             # stage('Checkout')
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21 and cache Maven downloads    # the agent's image
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: java-app/pom.xml
+
+      - name: Build                # stage('Build')
+        run: mvn -B -ntp -DskipTests clean package
+
+      - name: Test                 # stage('Test')
+        run: mvn -B -ntp test
+
+      - name: Test results to the run summary        # post { always { junit ... } }
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "### Test results"
+            echo '```'
+            cat target/surefire-reports/*.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: java-app/target/surefire-reports/
+
+      - name: Deliver              # stage('Deliver')
+        run: bash jenkins/scripts/deliver.sh
+
+      - name: Archive the JAR      # post { success { archiveArtifacts ... } }
+        uses: actions/upload-artifact@v7
+        with:
+          name: my-app-jar
+          path: java-app/target/*.jar
