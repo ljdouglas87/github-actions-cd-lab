@@ -1,0 +1,86 @@
+name: Release image
+
+on:
+  push:
+    tags: ['v*']                   # runs when you push a tag such as v1.0.0
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write              # lets the GITHUB_TOKEN push to ghcr.io
+      attestations: write          # lets the job store an attestation
+      id-token: write              # lets the job get a signing certificate (OIDC)
+    outputs:                       # the exact image this run pushed, by its digest
+      image: ${{ steps.name.outputs.image }}@${{ steps.push.outputs.digest }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Write the commit into the site
+        run: echo "$GITHUB_SHA" > site/commit.txt
+
+      - name: Work out the image name, in lowercase
+        id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Work out the image tags and labels
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ steps.name.outputs.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push the image
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Attest where the image came from
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ steps.name.outputs.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  test-image:                      # runs the pushed image on a fresh runner
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run the image and check what it serves
+        env:
+          IMAGE: ${{ needs.image.outputs.image }}
+        run: |
+          docker run --detach --publish 8080:80 "$IMAGE"
+          sleep 3
+          live=$(wget -q -O - http://localhost:8080/commit.txt)
+          page=$(wget -q -O - http://localhost:8080/)
+          echo "The container serves commit $live"
+          if [ "$live" = "$GITHUB_SHA" ] && [[ "$page" == *"Deployment successful"* ]]; then
+            echo "The image works."
+          else
+            echo "::error::The image does not serve the page from commit $GITHUB_SHA"
+            exit 1
+          fi
