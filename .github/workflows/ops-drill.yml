@@ -1,0 +1,20 @@
+name: Ops drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      slow:
+        description: Make the slow job take 5 minutes, so that you can cancel it
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  flaky:                           # fails on the first attempt, passes on a re-run
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call a service that is down at first
+        run: echo "Status: checking"
