@@ -1,0 +1,20 @@
+name: Which copy runs
+
+on:
+  pull_request:                    # runs the pull request's copy of this file
+  pull_request_target:             # runs the default branch's copy of this file
+
+permissions:
+  contents: read
+
+jobs:
+  show:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Say which copy of this file is running
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          echo "Event: $EVENT, ref: $GITHUB_REF"
+          echo "This is the copy of which-copy.yml from main."
