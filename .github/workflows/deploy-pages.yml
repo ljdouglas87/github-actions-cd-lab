@@ -42,7 +42,42 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:                       # passes the site's address on to the verify job
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Show deployment configuration
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}   # an environment secret
+        run: |
+          echo "Release channel: ${{ vars.RELEASE_CHANNEL }}"
+          if [ -n "$DEPLOY_KEY" ]; then
+            echo "Deploy key: received"
+          else
+            echo "Deploy key: missing"
+          fi
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  verify:                          # checks the live site after every deployment
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Smoke test the live site
+        env:
+          URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          for attempt in 1 2 3 4 5; do
+            live=$(wget -q -O - "${URL}commit.txt") || live=""
+            page=$(wget -q -O - "$URL") || page=""
+            if [ "$live" = "$GITHUB_SHA" ] && [[ "$page" == *"Deployment successful"* ]]; then
+              echo "Attempt $attempt: healthy, the site serves commit $live"
+              exit 0
+            fi
+            echo "Attempt $attempt: not healthy yet, the site serves commit ${live:-none}"
+            sleep 10
+          done
+          echo "::error::Smoke test failed: $URL is not a healthy page from commit $GITHUB_SHA"
+          exit 1
