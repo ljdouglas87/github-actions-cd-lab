@@ -1,0 +1,57 @@
+name: Smoke test
+
+on:
+  workflow_call:                   # other workflows call this one as a job
+    inputs:
+      url:
+        description: The address of the site to check
+        type: string
+        required: true
+      expected-text:
+        description: Text that a healthy page contains
+        type: string
+        default: Deployment successful
+    secrets:
+      smoke-test-key:
+        description: A key that the check sends with every request
+        required: true
+    outputs:
+      live-commit:
+        description: The commit that the live site was built from
+        value: ${{ jobs.check.outputs.live-commit }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      live-commit: ${{ steps.check.outputs.live-commit }}
+    steps:
+      - name: Check the live site
+        id: check
+        env:
+          URL: ${{ inputs.url }}
+          EXPECTED: ${{ inputs.expected-text }}
+          KEY: ${{ secrets.smoke-test-key }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::The smoke test key is empty. Add the SMOKE_TEST_KEY repository secret."
+            exit 1
+          fi
+          for attempt in 1 2 3 4 5; do
+            live=$(wget -q -O - --header "X-Smoke-Test-Key: $KEY" "${URL}commit.txt") || live=""
+            page=$(wget -q -O - --header "X-Smoke-Test-Key: $KEY" "$URL") || page=""
+            if [ "$live" = "$GITHUB_SHA" ] && [[ "$page" == *"$EXPECTED"* ]]; then
+              echo "Attempt $attempt: healthy, the site serves commit $live"
+              echo "live-commit=$live" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Attempt $attempt: not healthy yet, the site serves commit ${live:-none}"
+            sleep 10
+          done
+          echo "::error::Smoke test failed: $URL is not a healthy page from commit $GITHUB_SHA"
+          exit 1

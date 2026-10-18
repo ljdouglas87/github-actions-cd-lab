@@ -3,9 +3,11 @@ name: Deploy website
 on:
   push:
     branches: [main]
-    paths:                         # only changes to the site or to this file deploy
+    paths:                         # the site, this file, and the files it reuses
       - 'site/**'
       - '.github/workflows/deploy-pages.yml'
+      - '.github/workflows/smoke-test.yml'
+      - '.github/actions/stamp-site/**'
   workflow_dispatch:
 
 permissions:
@@ -25,8 +27,10 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v6
 
-      - name: Write the commit into the site
-        run: echo "$GITHUB_SHA" > site/commit.txt
+      - name: Stamp the site
+        uses: ./.github/actions/stamp-site     # a composite action in this repository
+        with:
+          folder: site
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
@@ -60,24 +64,20 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v5
 
-  verify:                          # checks the live site after every deployment
+  verify:
     needs: deploy
+    uses: ./.github/workflows/smoke-test.yml   # a reusable workflow, called as a whole job
+    with:
+      url: ${{ needs.deploy.outputs.page_url }}
+    secrets:
+      smoke-test-key: ${{ secrets.SMOKE_TEST_KEY }}
+
+  report:
+    needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
-      - name: Smoke test the live site
+      - name: Add the verified commit to the run summary
         env:
-          URL: ${{ needs.deploy.outputs.page_url }}
+          LIVE_COMMIT: ${{ needs.verify.outputs.live-commit }}
         run: |
-          for attempt in 1 2 3 4 5; do
-            live=$(wget -q -O - "${URL}commit.txt") || live=""
-            page=$(wget -q -O - "$URL") || page=""
-            if [ "$live" = "$GITHUB_SHA" ] && [[ "$page" == *"Deployment successful"* ]]; then
-              echo "Attempt $attempt: healthy, the site serves commit $live"
-              exit 0
-            fi
-            echo "Attempt $attempt: not healthy yet, the site serves commit ${live:-none}"
-            sleep 10
-          done
-          echo "::error::Smoke test failed: $URL is not a healthy page from commit $GITHUB_SHA"
-          exit 1
+          echo "### Live and verified: commit $LIVE_COMMIT" >> "$GITHUB_STEP_SUMMARY"

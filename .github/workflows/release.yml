@@ -22,8 +22,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Write the commit into the site
-        run: echo "$GITHUB_SHA" > site/commit.txt
+      - name: Stamp the site
+        uses: ./.github/actions/stamp-site     # the same composite action as deploy-pages.yml
+        with:
+          folder: site
 
       - name: Work out the image name, in lowercase
         id: name

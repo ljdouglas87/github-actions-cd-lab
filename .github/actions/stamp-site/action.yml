@@ -1,0 +1,23 @@
+name: Stamp the site
+description: Write the commit that is being built into the site, then list what will be published
+
+inputs:
+  folder:
+    description: The folder that holds the site
+    required: false
+    default: site
+
+runs:
+  using: composite
+  steps:
+    - name: Write the commit into the site
+      shell: bash                  # every run step in a composite action names its shell
+      env:
+        FOLDER: ${{ inputs.folder }}
+      run: echo "$GITHUB_SHA" > "$FOLDER/commit.txt"
+
+    - name: List the files to publish
+      shell: bash
+      env:
+        FOLDER: ${{ inputs.folder }}
+      run: ls -l "$FOLDER"
