@@ -1,0 +1,48 @@
+name: Deploy website
+
+on:
+  push:
+    branches: [main]
+    paths:                         # only changes to the site or to this file deploy
+      - 'site/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read                   # the default for every job: read the repository
+
+concurrency:
+  group: pages                     # one deployment at a time
+  cancel-in-progress: false        # never stop a deployment halfway
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Write the commit into the site
+        run: echo "$GITHUB_SHA" > site/commit.txt
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ./site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:                   # replaces contents: read for this job only
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
