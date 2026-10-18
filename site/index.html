@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GitHub Actions CD Lab</title>
+  <style>
+    body { font-family: system-ui; max-width: 800px; margin: 4rem auto;
+           padding: 0 1rem; background: #0d1117; color: #e6edf3; }
+    .card { border: 1px solid #30363d; padding: 2rem; border-radius: 16px; }
+    h1 { color: #58a6ff; }
+    .commit { color: #8b949e; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Deployment successful</h1>
+    <p>This page was deployed by GitHub Actions.</p>
+    <p>Version 1</p>
+    <p class="commit">Commit: <span id="commit">not deployed yet</span></p>
+  </div>
+  <script>
+    // The workflow writes commit.txt next to this page when it builds the site.
+    fetch('commit.txt', { cache: 'no-store' })
+      .then(response => response.ok ? response.text() : 'unknown')
+      .then(text => { document.getElementById('commit').textContent = text.trim(); });
+  </script>
+</body>
+</html>
