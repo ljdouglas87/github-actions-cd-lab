@@ -17,4 +17,39 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Call a service that is down at first
-        run: echo "Status: checking"
+        run: |
+          echo "This is attempt $GITHUB_RUN_ATTEMPT of this run."
+          if [ "$GITHUB_RUN_ATTEMPT" = "1" ]; then
+            echo "::error::The service did not answer. Try again in a minute."
+            exit 1
+          fi
+          echo "The service answered."
+
+  steady:                          # always passes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Do some steady work
+        run: echo "Steady work done."
+
+  slow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Work for a while
+        env:
+          SLOW: ${{ inputs.slow }}
+        run: |
+          if [ "$SLOW" = "true" ]; then seconds=300; else seconds=5; fi
+          echo "Working for $seconds seconds."
+          sleep "$seconds"
+          echo "Done."
+
+  alert:                           # runs only if a job it needs has failed
+    needs: [flaky, steady]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Tell the on-call engineer
+        run: echo "::warning::A job in this run failed. The on-call engineer was told."
