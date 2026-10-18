@@ -10,6 +10,8 @@ jobs:
   open-issue:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:                   # replaces contents: read for this job only
+      issues: write                # the one permission this job needs
     steps:
       - name: Open an issue with the GITHUB_TOKEN
         uses: actions/github-script@v9
