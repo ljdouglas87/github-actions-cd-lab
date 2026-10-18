@@ -1,0 +1,28 @@
+name: OIDC claims
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  claims:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production        # the environment becomes part of the token's subject
+    permissions:
+      contents: read
+      id-token: write              # lets this job ask GitHub for an OIDC token
+    steps:
+      - name: Request a token for AWS and print its claims
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const token = await core.getIDToken('sts.amazonaws.com')
+            const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString())
+            const { iss, aud, sub, repository, ref, environment } = claims
+            const { repository_owner_id, repository_id, exp, iat } = claims
+            core.info(JSON.stringify({ iss, aud, sub, repository, ref, environment,
+                                       repository_owner_id, repository_id }, null, 2))
+            core.info(`The token is valid for ${(exp - iat) / 60} minutes.`)

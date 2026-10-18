@@ -1,0 +1,27 @@
+# NOT RUN in this lab: it needs an AWS account with the identity provider and the role that
+# aws/trust-policy.json describes. It sits outside .github/workflows, so GitHub never runs it.
+name: Deploy to AWS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write                  # lets the job ask GitHub for an OIDC token
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production        # puts environment:production into the token's subject
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Get short-lived AWS credentials (no stored keys)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-actions-cd-lab-deploy
+          aws-region: us-east-1
+
+      - name: Show who the job is in AWS
+        run: aws sts get-caller-identity
